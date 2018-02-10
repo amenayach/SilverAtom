@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SilverAtom
 {
     public class Atomic
     {
-        Dictionary<string, Atom> dictionary;
+        private Dictionary<string, Atom> dictionary;
+        private SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
         public Atomic()
         {
@@ -15,9 +17,18 @@ namespace SilverAtom
 
         public async Task<T> Enqueue<T>(string key, Func<T> operation)
         {
-            if (!dictionary.ContainsKey(key))
+            await semaphoreSlim.WaitAsync();
+
+            try
             {
-                dictionary.Add(key, new Atom());
+                if (!dictionary.ContainsKey(key))
+                {
+                    dictionary.Add(key, new Atom());
+                }
+            }
+            finally
+            {
+                semaphoreSlim.Release();
             }
 
             return await dictionary[key].Enqueue<T>(operation);
